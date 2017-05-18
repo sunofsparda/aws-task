@@ -1,0 +1,306 @@
+---
+# AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create the stack (ELB/EC2) using Cloudformation (JSON and YAML)"
+
+Resources:
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+      - Key: "Name"
+        Value: "Ensure VPS is created"
+        
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internet-gateway.html
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+      Tags:
+      - Key: "Name"
+        Value: "Ensure InternetGateway is created"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html
+  VPCGatewayAttach:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+      Tags:
+      - Key: "Name"
+        Value: "Ensure InternetGateway is attached"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+  SubnetPrivate:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: "us-east-1a"
+      Tags:
+      - Key: "Name"
+        Value: "Ensure SubnetPrivate is created"
+
+  SubnetPublic:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: "us-east-1a"
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: "Name"
+        Value: "Ensure SubnetPrivate is created"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
+  RouteTablePrivate:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: "Name"
+        Value: "Ensure RouteTablePrivate is created"
+
+  RouteTablePublic:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: "Name"
+        Value: "Ensure RouteTablePublic is created"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-natgateway.html
+  NAT:
+    DependsOn: VPCGatewayAttach
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+        - EIP
+        - AllocationId
+      SubnetId: !Ref SubnetPublic
+      Tags:
+      - Key: "Name"
+        Value: "Ensure NAT is created"
+
+  EIP:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Tags:
+      - Key: "Name"
+        Value: "Ensure EIP is created"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+  RoutePrivate:
+    Type: 'AWS::EC2::Route'
+    DependsOn: NAT
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NAT
+      Tags:
+      - Key: "Name"
+        Value: "Ensure RoutePrivate is created"
+
+  RoutePublic:
+    Type: 'AWS::EC2::Route'
+    DependsOn: NAT
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      Tags:
+      - Key: "Name"
+        Value: "Ensure RoutePublic is created"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet-route-table-assoc.html
+  SubnetRouteTableAssociationPrivate:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetPrivate
+      RouteTableId: !Ref RouteTablePrivate
+      Tags:
+      - Key: "Name"
+        Value: "Ensure Private Subnet and Table are associated"
+
+  SubnetRouteTableAssociationPublic:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetPublic
+      RouteTableId: !Ref RouteTablePublic
+      Tags:
+      - Key: "Name"
+        Value: "Ensure Public Subnet and Table are associated"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http and ssh to client host
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: "Name"
+        Value: "Ensure InstanceSecurityGroup is created"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
+  Ec2Instance00:
+    Type: "AWS::EC2::Instance"
+    DependsOn: RoutePublic
+    Metadata: 
+      AWS::CloudFormation::Init: 
+        configSets:
+          InstallAndRun:
+            - Install
+        Install:
+          packages:
+            yum:
+              httpd: []
+          services:
+            sysvinit:
+              httpd:
+                enabled: 'true'
+                ensureRunning: 'true'
+    Properties: 
+      ImageId: "ami-c58c1dd3"
+      InstanceType: t2.micro
+      KeyName: "aws_acherlyonok"
+      NetworkInterfaces: 
+        # - AssociatePublicIpAddress: "true"
+        - SubnetId: !Ref "SubnetPublic"
+          DeviceIndex: "0"
+          GroupSet: 
+            - Ref: "InstanceSecurityGroup"
+      # UserData:
+      #   Fn::Base64: !Sub |     # No more Fn::Join needed
+      #     #!/bin/bash
+      #     sudo yum update -y
+      #     sudo yum install -y httpd && sudo service httpd start
+      #     sudo chkconfig httpd on
+      Tags:
+      - Key: "Name"
+        Value: "Ensure Instance00 is created"
+  Ec2Instance01:
+    Type: "AWS::EC2::Instance"
+    DependsOn: RoutePrivate
+    Metadata: 
+      AWS::CloudFormation::Init: 
+        configSets:
+          InstallAndRun:
+            - Install
+        Install:
+          packages:
+            yum:
+              httpd: []
+          services:
+            sysvinit:
+              httpd:
+                enabled: 'true'
+                ensureRunning: 'true'
+    Properties: 
+      ImageId: "ami-c58c1dd3"
+      InstanceType: t2.micro
+      KeyName: "aws_acherlyonok"
+      NetworkInterfaces: 
+        # - AssociatePublicIpAddress: "true"
+        - SubnetId: !Ref "SubnetPrivate"
+          DeviceIndex: "0"
+          GroupSet: 
+            - Ref: "InstanceSecurityGroup"
+      # UserData:
+      #   Fn::Base64: !Sub |     # No more Fn::Join needed
+      #     #!/bin/bash
+      #     sudo yum update -y
+      #     sudo yum install -y httpd
+      #     sudo service httpd start
+      #     sudo chkconfig httpd on
+      Tags:
+      - Key: "Name"
+        Value: "Ensure Instance01 is created"
+
+  Ec2Instance02:
+    Type: "AWS::EC2::Instance"
+    DependsOn: RoutePrivate
+    Metadata: 
+      AWS::CloudFormation::Init: 
+        configSets:
+          InstallAndRun:
+            - Install
+        Install:
+          packages:
+            yum:
+              httpd: []
+          services:
+            sysvinit:
+              httpd:
+                enabled: 'true'
+                ensureRunning: 'true'
+    Properties: 
+      ImageId: "ami-c58c1dd3"
+      InstanceType: t2.micro
+      KeyName: "aws_acherlyonok"
+      NetworkInterfaces: 
+        # - AssociatePublicIpAddress: "true"
+        - SubnetId: !Ref "SubnetPrivate"
+          DeviceIndex: "0"
+          GroupSet: 
+            - Ref: "InstanceSecurityGroup"
+      # UserData:
+      #   Fn::Base64: !Sub |     # No more Fn::Join needed
+      #     #!/bin/bash
+      #     sudo yum update -y
+      #     sudo yum install -y httpd
+      #     sudo service httpd start
+      #     sudo chkconfig httpd on
+      Tags:
+      - Key: "Name"
+        Value: "Ensure Instance02 is created"
+
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-elb.html
+  ElasticLoadBalancer:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      SecurityGroups:
+      - Ref: InstanceSecurityGroup
+      Subnets:
+      - Ref: SubnetPublic
+      Instances:
+      - Ref: Ec2Instance01
+      - Ref: Ec2Instance02
+      Listeners:
+      - LoadBalancerPort: '80'
+        InstancePort: '80'
+          # Ref: WebServerPort
+        Protocol: HTTP
+        InstanceProtocol: HTTP
+      HealthCheck:
+        Target:
+          Fn::Join:
+          - ''
+          - - 'HTTP:80/'
+          # - - 'HTTP:80'
+            # - Ref: WebServerPort
+            # - "/"
+        HealthyThreshold: '3'
+        UnhealthyThreshold: '5'
+        Interval: '30'
+        Timeout: '5'
