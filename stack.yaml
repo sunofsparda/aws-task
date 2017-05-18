@@ -268,15 +268,18 @@ Resources:
         InstancePort: '80'
           # Ref: WebServerPort
         Protocol: TCP
+        InstanceProtocol: TCP
+        # Protocol: HTTP
         # InstanceProtocol: HTTP
       HealthCheck:
-        Target:
-          Fn::Join:
-          - ''
-          - - 'TCP:80/'
-          # - - 'HTTP:80'
-            # - Ref: WebServerPort
-            # - "/"
+        Target: 'TCP:80'
+          # Fn::Join:
+          # - ''
+          # - - 'HTTP:80/'
+          # # - - 'TCP:80'
+          # # - - 'HTTP:80'
+          #   # - Ref: WebServerPort
+          #   # - "/"
         HealthyThreshold: '3'
         UnhealthyThreshold: '5'
         Interval: '30'
