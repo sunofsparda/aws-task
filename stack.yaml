@@ -267,13 +267,13 @@ Resources:
       - LoadBalancerPort: '80'
         InstancePort: '80'
           # Ref: WebServerPort
-        Protocol: HTTP
+        Protocol: TCP
         # InstanceProtocol: HTTP
       HealthCheck:
         Target:
           Fn::Join:
           - ''
-          - - 'HTTP:80/'
+          - - 'TCP:80/'
           # - - 'HTTP:80'
             # - Ref: WebServerPort
             # - "/"
