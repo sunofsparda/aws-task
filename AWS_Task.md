@@ -71,9 +71,3 @@
 4. **Create the stack (ELB/EC2) using [terraform](https://www.terraform.io/docs/index.html)**
     - Stack specification: the same as for task #3, *project: terraform*
     - Keep terraform state file in [s3 bucket](https://www.terraform.io/docs/backends/types/s3.html)
-
-
-
-
-
-

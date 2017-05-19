@@ -116,10 +116,10 @@ Resources:
       RouteTableId: !Ref RouteTablePublic
 
 # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
-  InstanceSecurityGroup:
+  SecurityGroupBackend:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow http and ssh to client host
+      GroupDescription: ALLOW http and ssh to client host
       VpcId: !Ref VPC
       SecurityGroupIngress:
       - IpProtocol: tcp
@@ -141,7 +141,75 @@ Resources:
       #   CidrIp: 0.0.0.0/0
       Tags:
       - Key: "Name"
-        Value: "instance_securitygroup-http-ssh"
+        Value: "securitygroup_backend_http_ssh"
+
+  SecurityGroupBastion:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALLOW ssh to client host
+      VpcId: !Ref VPC
+      SecurityGroupIngress: # IMPROVE THIS. need some kind of list
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: '213.184.243.0/24'
+
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: '217.21.56.0/24'
+
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: '217.21.63.0/24'
+
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: '213.184.231.0/24'
+
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: '86.57.255.88/29'
+      Tags:
+      - Key: "Name"
+        Value: "securitygroup_bastion_http_ssh"
+
+  SecurityGroupELB:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALLOW access for EPAM-Minsk addresses only
+      VpcId: !Ref VPC
+      SecurityGroupIngress: # IMPROVE THIS. need some kind of list
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: '213.184.243.0/24'
+
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: '217.21.56.0/24'
+
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'        
+        CidrIp: '217.21.63.0/24'
+
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: '213.184.231.0/24'
+
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: '86.57.255.88/29'
+      Tags:
+      - Key: "Name"
+        Value: "securitygroup_elbaccess_epam_minsk"
 
 # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
   Ec2Instance00:
@@ -170,7 +238,7 @@ Resources:
         - DeviceIndex: "0"
           SubnetId: !Ref "SubnetPublic"
           GroupSet: 
-            - Ref: "InstanceSecurityGroup"
+            - Ref: "SecurityGroupBastion"
       UserData:
         Fn::Base64: !Sub |     # No more Fn::Join needed
           #!/bin/bash
@@ -205,7 +273,7 @@ Resources:
         - DeviceIndex: "0"
           SubnetId: !Ref "SubnetPrivate"
           GroupSet: 
-            - Ref: "InstanceSecurityGroup"
+            - Ref: "SecurityGroupBackend"
       UserData:
         Fn::Base64: !Sub |     # No more Fn::Join needed
           #!/bin/bash
@@ -241,7 +309,7 @@ Resources:
         - DeviceIndex: "0"
           SubnetId: !Ref "SubnetPrivate"
           GroupSet: 
-            - Ref: "InstanceSecurityGroup"
+            - Ref: "SecurityGroupBackend"
       UserData:
         Fn::Base64: !Sub |     # No more Fn::Join needed
           #!/bin/bash
@@ -256,13 +324,13 @@ Resources:
     Type: AWS::ElasticLoadBalancing::LoadBalancer
     Properties:
       SecurityGroups:
-      - Ref: InstanceSecurityGroup
+      - Ref: SecurityGroupELB
       Subnets:
       - Ref: SubnetPublic
       Instances:
       - Ref: Ec2Instance01
       - Ref: Ec2Instance02
-      - Ref: Ec2Instance00
+      # - Ref: Ec2Instance00
       Listeners:
       - LoadBalancerPort: '80'
         InstancePort: '80'
@@ -275,7 +343,7 @@ Resources:
         Target: 'TCP:80'
           # Fn::Join:
           # - ''
-          # - - 'HTTP:80/'
+          # - - 'HTTP:80/index.html'
           # # - - 'TCP:80'
           # # - - 'HTTP:80'
           #   # - Ref: WebServerPort
