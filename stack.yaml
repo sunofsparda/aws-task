@@ -150,28 +150,28 @@ Resources:
       VpcId: !Ref VPC
       SecurityGroupIngress: # IMPROVE THIS. need some kind of list
       - IpProtocol: tcp
-        FromPort: '0'
-        ToPort: '65535'
+        FromPort: '22'
+        ToPort: '22'
         CidrIp: '213.184.243.0/24'
 
       - IpProtocol: tcp
-        FromPort: '0'
-        ToPort: '65535'
+        FromPort: '22'
+        ToPort: '22'
         CidrIp: '217.21.56.0/24'
 
       - IpProtocol: tcp
-        FromPort: '0'
-        ToPort: '65535'
+        FromPort: '22'
+        ToPort: '22'
         CidrIp: '217.21.63.0/24'
 
       - IpProtocol: tcp
-        FromPort: '0'
-        ToPort: '65535'
+        FromPort: '22'
+        ToPort: '22'
         CidrIp: '213.184.231.0/24'
 
       - IpProtocol: tcp
-        FromPort: '0'
-        ToPort: '65535'
+        FromPort: '22'
+        ToPort: '22'
         CidrIp: '86.57.255.88/29'
       Tags:
       - Key: "Name"
@@ -243,6 +243,7 @@ Resources:
         Fn::Base64: !Sub |     # No more Fn::Join needed
           #!/bin/bash
           sudo yum -y update && sudo yum -y install httpd
+          sudo wget http://g.oswego.edu/dl/csc241/sample.html -O /var/www/html/index.html
           sudo service httpd start && sudo chkconfig httpd on
       Tags:
       - Key: "Name"
@@ -278,6 +279,7 @@ Resources:
         Fn::Base64: !Sub |     # No more Fn::Join needed
           #!/bin/bash
           sudo yum -y update && sudo yum -y install httpd
+          sudo wget http://g.oswego.edu/dl/csc241/sample.html -O /var/www/html/index.html
           sudo service httpd start && sudo chkconfig httpd on
       Tags:
       - Key: "Name"
@@ -314,15 +316,18 @@ Resources:
         Fn::Base64: !Sub |     # No more Fn::Join needed
           #!/bin/bash
           sudo yum -y update && sudo yum -y install httpd
+          sudo wget http://g.oswego.edu/dl/csc241/sample.html -O /var/www/html/index.html
           sudo service httpd start && sudo chkconfig httpd on
       Tags:
       - Key: "Name"
         Value: "instance-02"
 
 # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-elb.html
-  ElasticLoadBalancer: # FIXME
+  ElasticLoadBalancer: # FIXME: HTTP load balancer not working. tcp works well
     Type: AWS::ElasticLoadBalancing::LoadBalancer
     Properties:
+      LoadBalancerName: elb1
+      Scheme: internet-facing
       SecurityGroups:
       - Ref: SecurityGroupELB
       Subnets:
@@ -330,17 +335,18 @@ Resources:
       Instances:
       - Ref: Ec2Instance01
       - Ref: Ec2Instance02
-      # - Ref: Ec2Instance00
+      - Ref: Ec2Instance00 # instance from public subnet
       Listeners:
       - LoadBalancerPort: '80'
         InstancePort: '80'
           # Ref: WebServerPort
-        Protocol: TCP
-        InstanceProtocol: TCP
-        # Protocol: HTTP
+        # Protocol: TCP
+        # InstanceProtocol: TCP
+        Protocol: HTTP
         # InstanceProtocol: HTTP
       HealthCheck:
-        Target: 'TCP:80'
+        Target: HTTP:80/
+        # Target: 'TCP:80'
           # Fn::Join:
           # - ''
           # - - 'HTTP:80/index.html'
