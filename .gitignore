@@ -3,3 +3,10 @@
 
 # terraform
 terraform.tfvars
+examples.tf
+graph.png
+terraform.tfstate
+terraform.tfstate.backup
+.terraform.tfstate.lock.info
+/variables.tfvars
+/stack.tfvars
