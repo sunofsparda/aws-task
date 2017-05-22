@@ -57,14 +57,17 @@
 //}
 
 variable "aws_region" {
+  default = "us-east-1"
 }
 
 variable "key_name" {
   description = "AWS key"
+  default = "aws_acherlyonok"
 }
 
 variable "key_path" {
   description = "Key path for SSHing into EC2"
+  default = "~/ssh/aws_acherlyonok.pem"
 }
 
 # Amazon Linux AMI 2017.03.0
