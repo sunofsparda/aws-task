@@ -175,7 +175,7 @@ Resources:
         CidrIp: '86.57.255.88/29'
       Tags:
       - Key: "Name"
-        Value: "securitygroup_bastion_http_ssh"
+        Value: "securitygroup_bastion_ssh"
 
   SecurityGroupELB:
     Type: AWS::EC2::SecurityGroup
