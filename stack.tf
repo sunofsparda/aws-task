@@ -9,7 +9,6 @@
 # Specify the provider and access details
 provider "aws" {
   region = "${var.aws_region}"
-
 }
 
 # Create a VPC to launch our instances into
@@ -32,8 +31,8 @@ resource "aws_subnet" "private" {
   vpc_id = "${aws_vpc.default.id}"
   cidr_block = "10.0.1.0/24"
   map_public_ip_on_launch = false
-
 }
+
 # Create a public subnet
 resource "aws_subnet" "public" {
   vpc_id = "${aws_vpc.default.id}"
@@ -71,6 +70,7 @@ resource "aws_route_table" "public" {
     gateway_id = "${aws_internet_gateway.default.id}"
   }
 }
+/* # FIXME: HARDCODE
 //# RoutePrivate
 //resource "aws_route" "private" {
 //  route_table_id = "${aws_vpc.default.default_route_table_id}"
@@ -83,6 +83,7 @@ resource "aws_route_table" "public" {
 //  destination_cidr_block = "0.0.0.0/0"
 //  gateway_id = "${aws_internet_gateway.default.id}"
 //}
+*/
 
 # SubnetRouteTableAssociationPrivate
 resource "aws_route_table_association" "public" {
@@ -121,7 +122,8 @@ resource "aws_security_group" "backend" {
     from_port = 0
     to_port = 0
     protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [
+      "0.0.0.0/0"]
   }
 
 }
@@ -142,7 +144,8 @@ resource "aws_security_group" "bastion" {
     from_port = 0
     to_port = 0
     protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [
+      "0.0.0.0/0"]
   }
 
   tags {
@@ -166,21 +169,24 @@ resource "aws_security_group" "elb" {
     from_port = 0
     to_port = 0
     protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [
+      "0.0.0.0/0"]
   }
 
 }
 
 # Ec2Instances
 resource "aws_instance" "web" {
-  depends_on = ["aws_route_table.private"]
+  depends_on = [
+    "aws_route_table.private"]
   ami = "${var.aws_amis["us-east-1"]}"
   count = 2
   source_dest_check = true
   instance_type = "${var.aws_instance_types}"
-  vpc_security_group_ids = ["${aws_security_group.backend.id}"]
+  vpc_security_group_ids = [
+    "${aws_security_group.backend.id}"]
   subnet_id = "${aws_subnet.private.id}"
-
+  availability_zone = "${var.availability_zones["us-east-1"]}"  # FIXME: HARDCODE
   key_name = "${var.key_name}"
   user_data = "${file("provision.sh")}"
 
@@ -190,13 +196,16 @@ resource "aws_instance" "web" {
 }
 
 resource "aws_instance" "bastion" {
-  depends_on = ["aws_route_table.private"]
+  depends_on = [
+    "aws_route_table.private"]
   ami = "${var.aws_amis["us-east-1"]}"
   count = 1
   source_dest_check = false
   instance_type = "${var.aws_instance_types}"
-  vpc_security_group_ids = ["${aws_security_group.bastion.id}"]
+  vpc_security_group_ids = [
+    "${aws_security_group.bastion.id}"]
   subnet_id = "${aws_subnet.public.id}"
+  availability_zone = "${var.availability_zones["us-east-1"]}"  # FIXME: HARDCODE
   key_name = "${var.key_name}"
 
   connection {
@@ -206,44 +215,40 @@ resource "aws_instance" "bastion" {
 
 # ElasticLoadBalancer
 resource "aws_elb" "elb" {
-  name               = "stack-elb"
-//  availability_zones = "${var.availability_zones["us-east-1"]}"
-  security_groups = ["${aws_security_group.elb.id}"]
-  subnets = ["${aws_subnet.public.id}"]
+  name = "stack-elb"
+  //  availability_zones = "${var.availability_zones["us-east-1"]}"
+  security_groups = [
+    "${aws_security_group.elb.id}"]
+  subnets = [
+    "${aws_subnet.public.id}"]
 
-//  access_logs {
-//    bucket        = "foo"
-//    bucket_prefix = "bar"
-//    interval      = 60
-//  }
+
+  //  access_logs {
+  //    bucket        = "foo"
+  //    bucket_prefix = "bar"
+  //    interval      = 60
+  //  }
 
   listener {
-    instance_port     = 80
+    instance_port = 80
     instance_protocol = "http"
-    lb_port           = 80
-    lb_protocol       = "http"
-  }
-
-  listener {
-    instance_port      = 80
-    instance_protocol  = "http"
-    lb_port            = 80
-    lb_protocol        = "http"
-//    ssl_certificate_id = "arn:aws:iam::123456789012:server-certificate/certName"
+    lb_port = 80
+    lb_protocol = "http"
   }
 
   health_check {
-    healthy_threshold   = 2
+    healthy_threshold = 2
     unhealthy_threshold = 10
-    timeout             = 3
-    target              = "HTTP:80/"
-    interval            = 5
+    timeout = 3
+    target = "HTTP:80/"
+    interval = 5
   }
 
-  instances                   = ["${aws_instance.web.*.id}"]
-  cross_zone_load_balancing   = true
-  idle_timeout                = 30
-  connection_draining         = true
+  instances = [
+    "${aws_instance.web.*.id}"]
+  cross_zone_load_balancing = true
+  idle_timeout = 30
+  connection_draining = true
   connection_draining_timeout = 30
 
   tags {
